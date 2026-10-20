@@ -198,6 +198,10 @@ Version 0.4.0 adds full outline clipping, spring-based motion, optional native g
 
 ---
 
+## 许可证
+
+本项目以 [MIT License](LICENSE) 开源。
+
 ## 免责声明
 
 本项目仅供学习与个人使用。使用前请自行评估风险；因使用本模块导致的系统异常、数据丢失或保修问题由使用者自行承担。与小米、HyperOS、LSPosed 官方无关联。
