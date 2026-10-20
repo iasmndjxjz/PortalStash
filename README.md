@@ -88,7 +88,7 @@
 | 暂存上限 | 12 条 | 6 / 12 / 24；调低不会立刻删除已有内容 |
 | 入口位置 | 右侧 | 左 / 右 |
 | 内容圆角 | 24 dp | 18 / 24 / 30 |
-| 柔和弹簧动画 | 开 | 遵循系统动画开关 |
+| 原生平移动画 | 开 | 遵循系统动画开关 |
 | 暂存栏原生柔光玻璃 | 关 | 实验，失败回退普通背景 |
 | 组件材质 | 跟随系统 | 柔光玻璃 / 经典；仅限指定版本 |
 | 设置页主题 | 跟随系统 | 仅影响模块设置页 |
@@ -164,7 +164,7 @@ src/io/github/portalstash/
   HookEntry.java         Xposed 入口，版本校验与 Hook 安装
   StashController.java   暂存状态、浮窗、手势、拖放与分享
   NativePortalUi.java    复用原 APK 组件与资源
-  Motion.java            独立实现的弹簧与圆角动效
+  Motion.java            与传送门一致的平移动效与圆角裁切
   GlassCompat.java       系统 View 玻璃扩展的能力检测与回退
   SystemPluginHook.java  限定版本的系统组件材质选择 Hook
   Config.java            设置持久化与白名单

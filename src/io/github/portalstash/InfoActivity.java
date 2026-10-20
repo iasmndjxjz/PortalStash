@@ -76,7 +76,7 @@ public final class InfoActivity extends Activity {
         section("圆角与动效"); LinearLayout motion = group();
         row(motion, "内容圆角", "暂存栏四角、卡片与图片分别裁切", cfg.corner + " dp", () -> choose("内容圆角", new String[]{"18 dp", "24 dp", "30 dp"},
                 cfg.corner == 18 ? 0 : cfg.corner == 30 ? 2 : 1, i -> { cfg.corner = new int[]{18,24,30}[i]; changed(); }));
-        toggle(motion, "柔和弹簧动画", "展开、收起、暂存成功、移除回弹；遵循系统关闭动画选项", cfg.animations,
+        toggle(motion, "原生平移动画", "与传送门一致：从屏幕边缘直接平移进出，无回弹；遵循系统关闭动画选项", cfg.animations,
                 value -> { cfg.animations=value; cfg.save(this); });
         toggle(motion, "暂存栏原生柔光玻璃", "实验功能；原生接口不可用时保留普通背景", cfg.stashGlass,
                 value -> { cfg.stashGlass=value; cfg.save(this); });
@@ -164,7 +164,7 @@ public final class InfoActivity extends Activity {
     }
     private void about(boolean style) {
         new AlertDialog.Builder(this).setTitle(style ? "界面与版本" : "使用说明")
-                .setMessage(style ? "0.4.0 澎湃 4 实验版\n\n新增三层独立圆角、柔和弹簧动效、可选暂存栏原生玻璃，以及限定系统界面组件 18.3.2.22.0 的材质选择 Hook。两项玻璃功能默认关闭／跟随系统。系统组件重新创建后应用材质，不修改系统设置、不改桌面。\n\n长按入口复用原应用的 TaplusRecognitionShrinkCard、背景、字体和保存图标；原识别功能不被替换。暂存内容横向排列，长按拖出，上滑移除。模块设置页仍为原生 Views，并未集成 Compose Miuix 组件库。\n\n已构建不等于已完成实机验证。" :
+                .setMessage(style ? "0.4.1 澎湃 4 版\n\n新增三层独立圆角、与传送门一致的边缘平移动效、可选暂存栏原生玻璃，以及限定系统界面组件 18.3.2.22.0 的材质选择 Hook。两项玻璃功能默认关闭／跟随系统。系统组件重新创建后应用材质，不修改系统设置、不改桌面。\n\n长按入口复用原应用的 TaplusRecognitionShrinkCard、背景、字体和保存图标；原识别功能不被替换。暂存内容横向排列，长按拖出，上滑移除。模块设置页仍为原生 Views，并未集成 Compose Miuix 组件库。\n\n已构建不等于已完成实机验证。" :
                 "1. 普通暂存仅勾选传送门。系统组件材质功能才额外勾选系统界面与系统界面组件。\n2. 首次注入需要传送门进程重新载入模块。\n3. 双指按压展开传送门，点侧边暂存入口。\n4. 展开暂存列表，长按内容拖出，或使用系统分享。\n\n跨应用拖放取决于目标应用支持；不读取通知、短信或聊天数据库，不自动发送。图片须先经传送门识别。\n\n锁屏时隐藏。过期清理在进程运行或再次启动时执行，不保证后台精确擦除。")
                 .setPositiveButton("知道了", null).show();
     }

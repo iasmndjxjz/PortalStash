@@ -256,7 +256,7 @@ final class StashController {
         View outgoing=window;
         if (outgoing==null || !Motion.enabled(config.animations)) { show(expanded); return; }
         outgoing.setEnabled(false);
-        Motion.exit(outgoing, config.animations, () -> {
+        Motion.exit(outgoing, config.animations, "left".equals(config.side), () -> {
             if (window==outgoing && !stopped && !dragging) show(expanded);
         });
     }

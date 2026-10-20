@@ -21,7 +21,7 @@ if [[ ! -f "$TOOLS/experimental.keystore" ]]; then
 fi
 apksigner sign --ks "$TOOLS/experimental.keystore" --ks-pass pass:portalstash-local \
   --key-pass pass:portalstash-local --ks-key-alias portalstash \
-  --out "$ROOT/dist/PortalStash-LSP-0.4.0-os4-experimental.apk" "$ROOT/build/aligned.apk"
-apksigner verify --verbose "$ROOT/dist/PortalStash-LSP-0.4.0-os4-experimental.apk"
-aapt dump badging "$ROOT/dist/PortalStash-LSP-0.4.0-os4-experimental.apk"
-sha256sum "$ROOT/dist/PortalStash-LSP-0.4.0-os4-experimental.apk"
+  --out "$ROOT/dist/PortalStash-LSP-0.4.1.apk" "$ROOT/build/aligned.apk"
+apksigner verify --verbose "$ROOT/dist/PortalStash-LSP-0.4.1.apk"
+aapt dump badging "$ROOT/dist/PortalStash-LSP-0.4.1.apk"
+sha256sum "$ROOT/dist/PortalStash-LSP-0.4.1.apk"
