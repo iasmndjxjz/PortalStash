@@ -59,7 +59,7 @@
 
 ## 安装与启用
 
-1. 安装 [Releases](https://github.com/iasmndjxjz/PortalStash/releases) 中的 APK（当前为预发布版 `v0.4.0`，SHA256 `6075b5670a2624804ddcb5116c8f5c2910cf7451d64ded0f6872ab00778dce2c`）。
+1. 安装 [Releases](https://github.com/iasmndjxjz/PortalStash/releases) 中的 APK（当前版本 `v0.4.0`，SHA256 `6075b5670a2624804ddcb5116c8f5c2910cf7451d64ded0f6872ab00778dce2c`）。
 2. 在 LSPosed 中启用模块。
 3. **基础暂存功能**：作用域只勾选 **传送门**（`com.miui.contentextension`）。
 4. 若要使用“系统界面组件材质”，再额外勾选 `com.android.systemui` 与 `miui.systemui.plugin`（详见下文）。
@@ -114,7 +114,9 @@
 
 ## 已知限制与验证状态
 
-**0.4.0 已完成本地编译、签名校验与纯 JVM 数值检查，但尚未在真机上安装、注入，也未实测圆角外观、动画帧率、原生玻璃与系统组件材质。** 请把它当作实验版本。
+0.4.0 已完成本地编译、签名校验与纯 JVM 数值检查，并已由维护者在澎湃 OS 4 真机上安装、注入，验证了基础流程：长按入口、暂存保存、暂存栏展示、拖出与上滑移除。
+
+以下项目仍未做系统性测量，效果取决于机型与系统版本：圆角与动效的实际观感、动画帧率、原生玻璃是否真正显示、系统界面组件材质的实际表现。
 
 逐项记录见 [构建与验证记录](docs/BUILD-AND-VERIFICATION.md)。
 
