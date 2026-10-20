@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="io.github.portalstash" android:versionCode="4" android:versionName="0.4.0-os4-experimental">
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35" />
+    <queries><package android:name="com.miui.contentextension" /><package android:name="miui.systemui.plugin" /><package android:name="com.android.systemui" /></queries>
+    <application android:label="传送门暂存 · LSP" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:icon="@drawable/ic_stash">
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription" android:value="传送门5.1.5暂存圆角动效；可选澎湃4系统组件18.3.2.22.0材质实验Hook，系统材质默认跟随系统" />
+        <meta-data android:name="xposedminversion" android:value="93" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
+        <provider android:name=".StashProvider" android:authorities="io.github.portalstash.cache" android:exported="true" android:grantUriPermissions="true" />
+        <activity android:name=".InfoActivity" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity>
+    </application>
+</manifest>

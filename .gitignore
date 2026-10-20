@@ -1,0 +1,27 @@
+# build output
+build/
+dist/
+out/
+*.apk
+*.idsig
+
+# local toolchain (downloaded by prepare-tools.sh) and signing material
+tools/
+*.keystore
+*.jks
+
+# vendor artifacts and reverse-engineering scratch files — never commit
+portal-*.apk
+decompiled/
+research/
+*.dex
+*.jar
+
+# design scratch
+.superdesign/
+
+# editor / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
