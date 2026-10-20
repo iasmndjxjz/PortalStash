@@ -59,7 +59,7 @@
 
 ## 安装与启用
 
-1. 安装 [最新 Release](../../releases/latest) 中的 APK。
+1. 安装 [Releases](https://github.com/iasmndjxjz/PortalStash/releases) 中的 APK（当前为预发布版 `v0.4.0`，SHA256 `6075b5670a2624804ddcb5116c8f5c2910cf7451d64ded0f6872ab00778dce2c`）。
 2. 在 LSPosed 中启用模块。
 3. **基础暂存功能**：作用域只勾选 **传送门**（`com.miui.contentextension`）。
 4. 若要使用“系统界面组件材质”，再额外勾选 `com.android.systemui` 与 `miui.systemui.plugin`（详见下文）。
