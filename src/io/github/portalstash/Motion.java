@@ -42,6 +42,13 @@ final class Motion {
         v.setTranslationX(edge(v, left));
         v.animate().translationX(0).setInterpolator(IN).setDuration(350).start();
     }
+    static void fadeIn(View v, boolean choice, int millis, int delay) {
+        cancel(v);
+        if (!enabled(choice)) { v.setAlpha(1); v.setTranslationY(0); return; }
+        v.setAlpha(0f);
+        v.animate().alpha(1f).setStartDelay(delay).setDuration(millis)
+                .setInterpolator(IN).start();
+    }
     static void exit(View v, boolean choice, boolean left, Runnable end) {
         cancel(v);
         if (!enabled(choice)) { end.run(); return; }

@@ -179,6 +179,7 @@ final class StashController {
                     android.graphics.drawable.Drawable bg = template.getBackground();
                     if (bg != null && bg.getConstantState() != null) save.setBackground(bg.getConstantState().newDrawable(template.getResources()).mutate());
                     save.setOnClickListener(v -> capture());
+                    save.setAlpha(0f);
                     bar.addView(save, new LinearLayout.LayoutParams(0, template.getLayoutParams().height, 1));
                     for (int n = 0; n < bar.getChildCount(); n++) {
                         View child = bar.getChildAt(n);
@@ -188,6 +189,10 @@ final class StashController {
                         }
                     }
                     removeWindow();
+                    save.post(() -> {
+                        if (stopped || offerOwner.get()!=owner || !save.isAttachedToWindow()) return;
+                        Motion.fadeIn(save,config.animations,320,60);
+                    });
                 } catch (Throwable e) { HookEntry.log("native expanded action", e); }
             });
         });
@@ -210,7 +215,10 @@ final class StashController {
             int anchor = second != null && second.getVisibility() != View.GONE ? secondId : original.getId();
             lp.addRule(android.widget.RelativeLayout.BELOW, anchor);
             lp.addRule(android.widget.RelativeLayout.ALIGN_PARENT_END);
-            lp.topMargin = dp(8); extra.setAlpha(1); extra.setVisibility(View.VISIBLE);
+            lp.topMargin = dp(8); extra.setVisibility(View.VISIBLE);
+            // Stay invisible while the host lays out its own cards, then fade in with the
+            // same curve/duration the portal uses for its recognition cards.
+            extra.setAlpha(0f);
             parent.addView(extra, lp); nativeEntry = new WeakReference<>(extra);
             View recommend = parent.findViewById(NativePortalUi.id(original.getContext(), "id", "recommend_group"));
             if (recommend != null && recommend.getLayoutParams() instanceof android.widget.RelativeLayout.LayoutParams) {
@@ -218,6 +226,10 @@ final class StashController {
                 r.addRule(android.widget.RelativeLayout.BELOW, extra.getId()); recommend.setLayoutParams(r);
             }
             removeWindow();
+            extra.post(() -> {
+                if (stopped || entryOwner.get()!=owner || !extra.isAttachedToWindow()) return;
+                Motion.fadeIn(extra,config.animations,350,80);
+            });
         } catch (Throwable e) { HookEntry.log("native short entry", e); }
     }
 
@@ -305,7 +317,7 @@ final class StashController {
             ImageView icon=new ImageView(windowContext);
             icon.setImageDrawable(NativePortalUi.drawable(windowContext,"icon_recognition_image_save"));
             icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-            GradientDrawable bg=new GradientDrawable(); bg.setColor(0xeeededed); bg.setCornerRadius(dp(18)); icon.setBackground(bg);
+            GradientDrawable bg=new GradientDrawable(); bg.setColor(0x99000000); bg.setCornerRadius(dp(18)); icon.setBackground(bg);
             android.widget.FrameLayout.LayoutParams ip=new android.widget.FrameLayout.LayoutParams(dp(56),dp(56));
             ip.leftMargin=dockLeft ? -dp(28) : 0;
             peek.addView(icon,ip); peek.setClipChildren(true);
@@ -319,12 +331,13 @@ final class StashController {
             box.addView(capsule, new LinearLayout.LayoutParams(-1, NativePortalUi.dim(windowContext, "shrink_card_height")));
         } else {
             GradientDrawable surface = new GradientDrawable();
-            surface.setColor(windowContext.getResources().getColor(NativePortalUi.id(windowContext,"color","color_card_bg"),windowContext.getTheme()));
+            surface.setColor(0x99000000); // Keep black RGB; reduce background opacity only.
             surface.setCornerRadius(dp(config.corner)); box.setBackground(surface);
             Motion.round(box,dp(config.corner));
             box.setPadding(dp(12), dp(10), dp(12), dp(10));
             LinearLayout heading = new LinearLayout(windowContext); heading.setGravity(Gravity.CENTER_VERTICAL);
             TextView title = NativePortalUi.text(windowContext, "暂存栏  " + items.size());
+            title.setTextColor(0xffffffff);
             title.setPadding(dp(8), dp(8), dp(8), dp(8));
             heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
             TextView close = nativeAction("收起", () -> hideToEdge()); heading.addView(close);
@@ -332,20 +345,21 @@ final class StashController {
             bindWindowDrag(title,box,false);
             box.addView(heading);
             TextView hint = NativePortalUi.text(windowContext, "长按拖出 · 上滑移除");
-            hint.setAlpha(0.5f); hint.setTextSize(11); hint.setPadding(dp(8), 0, dp(8), dp(10)); box.addView(hint);
+            hint.setTextColor(0xffdddddd); hint.setAlpha(0.7f); hint.setTextSize(11); hint.setPadding(dp(8), 0, dp(8), dp(10)); box.addView(hint);
             // Horizontal scroller reserves vertical gestures exclusively for swipe-up removal.
             android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(windowContext);
             scroll.setHorizontalScrollBarEnabled(false);
             LinearLayout list = new LinearLayout(windowContext);
             for (Item item : new ArrayList<>(items)) {
                 LinearLayout tile = new LinearLayout(windowContext); tile.setOrientation(LinearLayout.VERTICAL);
-                tile.setBackground(NativePortalUi.drawable(windowContext, "card_bg_recognition_image"));
+                GradientDrawable tileBackground=new GradientDrawable(); tileBackground.setColor(0x66000000);
+                tileBackground.setCornerRadius(dp(Math.max(12,config.corner-6))); tile.setBackground(tileBackground);
                 Motion.round(tile,dp(Math.max(12,config.corner-6))); tile.setPadding(dp(8), dp(8), dp(8), dp(5));
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(180), -2); lp.setMargins(dp(4), 0, dp(4), 0);
                 View content;
                 if (item.uri == null) {
                     TextView text = NativePortalUi.text(windowContext, item.text);
-                    text.setTextSize(14); text.setMaxLines(6); text.setGravity(Gravity.CENTER_VERTICAL);
+                    text.setTextColor(0xffffffff); text.setTextSize(14); text.setMaxLines(6); text.setGravity(Gravity.CENTER_VERTICAL);
                     text.setPadding(dp(8), dp(6), dp(8), dp(6)); content = text;
                 } else {
                     ImageView image = new ImageView(windowContext); image.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -380,7 +394,8 @@ final class StashController {
                 : NativePortalUi.dim(windowContext, "shrink_card_width");
         params = new WindowManager.LayoutParams(width, -2, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, PixelFormat.TRANSLUCENT);
+                | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+                | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, PixelFormat.TRANSLUCENT);
         params.gravity = Gravity.TOP | Gravity.LEFT;
         int screenHeight=windowContext.getResources().getDisplayMetrics().heightPixels;
         params.y=WindowGeometry.y(y,screenHeight,dp(expanded ? 310 : 56),dp(32));
@@ -388,6 +403,10 @@ final class StashController {
                 ("left".equals(config.side) ? dp(8) : screenWidth-width-dp(8)) : x,screenWidth,width);
         params.setTitle("PortalStashNative");
         final WindowManager.LayoutParams fresh=params;
+        final int targetX=params.x;
+        final boolean slideFromLeft=targetX+width/2<screenWidth/2;
+        final boolean slide=animateEntry && Motion.enabled(config.animations);
+        if(slide) fresh.x=slideFromLeft ? -width : screenWidth;
         // First draw is blocked until geometry, material and the animation start position are ready.
         box.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
             @Override public boolean onPreDraw() {
@@ -397,7 +416,7 @@ final class StashController {
                     String status=GlassCompat.applyDetailed(box,dp(config.corner));
                     reportVisual("stashGlass",status);
                 }
-                if (animateEntry && !docked) Motion.enter(box,panel,config.animations,params.x+width/2<screenWidth/2);
+                if (slide) slideWindow(box,fresh,targetX,350,null,true);
                 if (previous!=null) {
                     // Keep the old surface for one presented frame; prevents a blank compositor gap.
                     box.postOnAnimation(() -> {
@@ -415,6 +434,38 @@ final class StashController {
             if (previous!=null) { previous.setTranslationX(0); previous.setAlpha(1); previous.setEnabled(true); }
             HookEntry.log("native stash window",e);
         }
+    }
+
+    private void slideWindow(View root,WindowManager.LayoutParams layout,int target,int duration,Runnable done) {
+        slideWindow(root,layout,target,duration,done,false);
+    }
+    private void slideWindow(View root,WindowManager.LayoutParams layout,int target,int duration,Runnable done,boolean fade) {
+        if(windowAnimator!=null) { windowAnimator.cancel(); windowAnimator=null; }
+        if(!Motion.enabled(config.animations)) {
+            layout.x=target; wm.updateViewLayout(root,layout); if(done!=null) done.run(); return;
+        }
+        android.animation.ValueAnimator animator=android.animation.ValueAnimator.ofInt(layout.x,target);
+        windowAnimator=animator;
+        animator.setDuration(duration);
+        animator.setInterpolator(new android.view.animation.PathInterpolator(.4f,0,.2f,1));
+        final boolean[] cancelled={false};
+        if(fade) root.setAlpha(.35f);
+        animator.addUpdateListener(a -> {
+            if(window!=root || stopped) { a.cancel(); return; }
+            float fraction=a.getAnimatedFraction();
+            layout.x=(Integer)a.getAnimatedValue();
+            // Fade in alongside the slide so the surface never pops at full opacity.
+            if(fade) root.setAlpha(.35f+.65f*Math.min(1f,fraction*1.35f));
+            try { wm.updateViewLayout(root,layout); } catch(RuntimeException e) { a.cancel(); }
+        });
+        animator.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override public void onAnimationCancel(android.animation.Animator a) { cancelled[0]=true; }
+            @Override public void onAnimationEnd(android.animation.Animator a) {
+                if(windowAnimator==animator) windowAnimator=null;
+                if(fade && window==root) root.setAlpha(1f);
+                if(!cancelled[0] && done!=null) done.run();
+            }
+        }); animator.start();
     }
 
     private boolean expandedPanel(View box) { return window==box && panel && !docked; }
@@ -443,7 +494,7 @@ final class StashController {
             if (window!=outgoing || stopped || locked()) return;
             y=params.y; docked=true; persistPosition(); show(false);
         };
-        Motion.exit(outgoing,config.animations,dockLeft,finish);
+        slideWindow(outgoing,params,dockLeft ? -params.width : screen,200,finish);
     }
     private void bindWindowDrag(View handle,View root,boolean peek) {
         handle.setOnTouchListener(new View.OnTouchListener() {
@@ -495,7 +546,7 @@ final class StashController {
 
     private TextView nativeAction(String label, Runnable action) {
         TextView text = NativePortalUi.text(windowContext, label);
-        text.setTextSize(12); text.setGravity(Gravity.CENTER); text.setMinHeight(dp(42));
+        text.setTextColor(0xffffffff); text.setTextSize(12); text.setGravity(Gravity.CENTER); text.setMinHeight(dp(42));
         text.setPadding(dp(9), dp(8), dp(9), dp(8)); text.setOnClickListener(v -> action.run()); return text;
     }
     private void openStored() {
