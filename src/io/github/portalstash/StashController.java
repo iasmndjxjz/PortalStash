@@ -73,6 +73,11 @@ final class StashController {
     private boolean dragging;
     private int generation;
     private int y;
+    private int x = -1;
+    private boolean docked, dockLeft, movingWindow, suppressOffer;
+    private String windowKey;
+    private final ArrayList<View> retiredWindows=new ArrayList<>();
+    private android.animation.ValueAnimator windowAnimator;
 
     private static final class Item {
         String id;
@@ -97,6 +102,9 @@ final class StashController {
         wm = (WindowManager) windowContext.getSystemService(Context.WINDOW_SERVICE);
         prefs = context.getSharedPreferences("portal_stash_v1", Context.MODE_PRIVATE);
         y = prefs.getInt("y", dp(180));
+        x = prefs.getInt("x", -1);
+        docked = prefs.getBoolean("docked",false);
+        dockLeft = prefs.getBoolean("dockLeft",false);
         refreshConfig();
         restore();
         restoreReady = true;
@@ -138,11 +146,14 @@ final class StashController {
     private final Runnable expire = new Runnable() {
         @Override public void run() {
             if (stopped) return;
+            int previous=items.size();
             for (int i = items.size() - 1; i >= 0; i--) {
                 if (System.currentTimeMillis() - items.get(i).time >= config.ttl()) removeItem(items.get(i), false);
             }
-            save();
-            if (window != null && !dragging) show(panel);
+            if (items.size()!=previous) {
+                save();
+                if (window != null && !dragging && !movingWindow) show(panel);
+            }
             main.postDelayed(this, 60000L);
         }
     };
@@ -214,7 +225,7 @@ final class StashController {
         if (entryOwner.get() == owner) { nativeEntry.clear(); entryOwner.clear(); }
         if (offerOwner.get() == owner) {
             offerOwner.clear();
-            main.post(() -> show(false));
+            if (!suppressOffer) main.post(() -> { if (!suppressOffer) show(false); });
         }
     }
 
@@ -246,34 +257,65 @@ final class StashController {
         });
     }
     private void removeWindow() {
-        View v = window; window = null;
+        if (windowAnimator!=null) { windowAnimator.cancel(); windowAnimator=null; }
+        View v = window; window = null; windowKey=null;
+        for (View retired:new ArrayList<>(retiredWindows)) {
+            Motion.cancelTree(retired); GlassCompat.clear(retired);
+            try { wm.removeViewImmediate(retired); } catch (RuntimeException ignored) { }
+        }
+        retiredWindows.clear();
         if (v != null) { Motion.cancelTree(v); GlassCompat.clear(v);
             try { wm.removeView(v); } catch (RuntimeException e) { HookEntry.log("remove window", e); }
         }
     }
 
     private void transition(boolean expanded) {
-        View outgoing=window;
-        if (outgoing==null || !Motion.enabled(config.animations)) { show(expanded); return; }
-        outgoing.setEnabled(false);
-        Motion.exit(outgoing, config.animations, "left".equals(config.side), () -> {
-            if (window==outgoing && !stopped && !dragging) show(expanded);
-        });
+        // Keep the previous surface until the replacement is measured and ready to draw.
+        show(expanded);
     }
 
+    private String contentKey(boolean expanded) {
+        StringBuilder key=new StringBuilder().append(expanded).append('/').append(docked).append('/').append(dockLeft)
+                .append('/').append(config.corner).append('/').append(config.stashGlass).append('/').append(config.side);
+        for (Item item:items) key.append('/').append(item.id);
+        return key.toString();
+    }
     private void show(boolean expanded) {
-        if (stopped || dragging) return;
-        removeWindow();
-        if (!config.enabled || locked() || items.isEmpty()) return;
+        if (stopped || dragging || movingWindow) return;
+        if (!config.enabled || locked() || items.isEmpty()) { removeWindow(); return; }
+        if (docked) expanded=false;
+        String key=contentKey(expanded);
+        if (window!=null && key.equals(windowKey)) return;
+        View previous=window;
+        boolean animateEntry=previous==null || panel!=expanded;
+        WindowManager.LayoutParams previousParams=params;
+        if (windowAnimator!=null) { windowAnimator.cancel(); windowAnimator=null; }
+        if (previous!=null) Motion.cancelTree(previous);
+
         LinearLayout existing = nativeEntry.get();
-        if (!expanded && existing != null && existing.isAttachedToWindow()) return;
+        if (!expanded && existing != null && existing.isAttachedToWindow()) { removeWindow(); return; }
         if (!Settings.canDrawOverlays(context)) return;
         panel = expanded;
         // Every surface is inflated/constructed using the original app resources, not module styling.
         LinearLayout box = new LinearLayout(windowContext);
         box.setOrientation(LinearLayout.VERTICAL);
-        if (!expanded) {
+        if (docked) {
+            // The window itself is only 28dp wide: no invisible overlay intercepts the app beside it.
+            android.widget.FrameLayout peek=new android.widget.FrameLayout(windowContext);
+            ImageView icon=new ImageView(windowContext);
+            icon.setImageDrawable(NativePortalUi.drawable(windowContext,"icon_recognition_image_save"));
+            icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+            GradientDrawable bg=new GradientDrawable(); bg.setColor(0xeeededed); bg.setCornerRadius(dp(18)); icon.setBackground(bg);
+            android.widget.FrameLayout.LayoutParams ip=new android.widget.FrameLayout.LayoutParams(dp(56),dp(56));
+            ip.leftMargin=dockLeft ? -dp(28) : 0;
+            peek.addView(icon,ip); peek.setClipChildren(true);
+            peek.setContentDescription("暂存栏已藏边；点击展开，或向屏幕内拖出");
+            peek.setOnClickListener(v -> restoreDock());
+            bindWindowDrag(peek,box,true);
+            box.addView(peek,new LinearLayout.LayoutParams(dp(28),dp(56)));
+        } else if (!expanded) {
             LinearLayout capsule = NativePortalUi.entry(windowContext, "暂存栏", "icon_recognition_image_save", () -> openStored());
+            bindWindowDrag(capsule,box,false);
             box.addView(capsule, new LinearLayout.LayoutParams(-1, NativePortalUi.dim(windowContext, "shrink_card_height")));
         } else {
             GradientDrawable surface = new GradientDrawable();
@@ -285,7 +327,9 @@ final class StashController {
             TextView title = NativePortalUi.text(windowContext, "暂存栏  " + items.size());
             title.setPadding(dp(8), dp(8), dp(8), dp(8));
             heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-            TextView close = nativeAction("收起", () -> transition(false)); heading.addView(close);
+            TextView close = nativeAction("收起", () -> hideToEdge()); heading.addView(close);
+            title.setContentDescription("拖动标题移动暂存栏，靠边松手藏入边缘");
+            bindWindowDrag(title,box,false);
             box.addView(heading);
             TextView hint = NativePortalUi.text(windowContext, "长按拖出 · 上滑移除");
             hint.setAlpha(0.5f); hint.setTextSize(11); hint.setPadding(dp(8), 0, dp(8), dp(10)); box.addView(hint);
@@ -331,23 +375,122 @@ final class StashController {
             }
             return true;
         });
-        int width = expanded ? Math.min(dp(310), context.getResources().getDisplayMetrics().widthPixels - dp(24))
+        int screenWidth=windowContext.getResources().getDisplayMetrics().widthPixels;
+        int width = docked ? dp(28) : expanded ? Math.min(dp(310), screenWidth-dp(24))
                 : NativePortalUi.dim(windowContext, "shrink_card_width");
         params = new WindowManager.LayoutParams(width, -2, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL, PixelFormat.TRANSLUCENT);
-        params.gravity = Gravity.TOP | ("left".equals(config.side) ? Gravity.LEFT : Gravity.RIGHT);
-        int maxY = Math.max(dp(48), context.getResources().getDisplayMetrics().heightPixels - dp(expanded ? 350 : 90));
-        params.y = Math.max(dp(48), Math.min(y, maxY)); params.x = dp(8); params.setTitle("PortalStashNative");
-        try {
-            wm.addView(box, params); window = box;
-            box.post(() -> {
-                if (window != box || stopped) return;
-                if (expanded && config.stashGlass && !GlassCompat.apply(box,dp(config.corner)))
-                    toast("原生玻璃暂不可用，已保留普通背景");
-                Motion.enter(box,expanded,config.animations,"left".equals(config.side));
-            });
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED, PixelFormat.TRANSLUCENT);
+        params.gravity = Gravity.TOP | Gravity.LEFT;
+        int screenHeight=windowContext.getResources().getDisplayMetrics().heightPixels;
+        params.y=WindowGeometry.y(y,screenHeight,dp(expanded ? 310 : 56),dp(32));
+        params.x=docked ? (dockLeft ? 0 : screenWidth-width) : WindowGeometry.x(x<0 ?
+                ("left".equals(config.side) ? dp(8) : screenWidth-width-dp(8)) : x,screenWidth,width);
+        params.setTitle("PortalStashNative");
+        final WindowManager.LayoutParams fresh=params;
+        // First draw is blocked until geometry, material and the animation start position are ready.
+        box.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            @Override public boolean onPreDraw() {
+                box.getViewTreeObserver().removeOnPreDrawListener(this);
+                if (window!=box || stopped) return true;
+                if (expandedPanel(box) && config.stashGlass) {
+                    String status=GlassCompat.applyDetailed(box,dp(config.corner));
+                    reportVisual("stashGlass",status);
+                }
+                if (animateEntry && !docked) Motion.enter(box,panel,config.animations,params.x+width/2<screenWidth/2);
+                if (previous!=null) {
+                    // Keep the old surface for one presented frame; prevents a blank compositor gap.
+                    box.postOnAnimation(() -> {
+                        if (!retiredWindows.remove(previous)) return;
+                        GlassCompat.clear(previous);
+                        try { wm.removeViewImmediate(previous); } catch (RuntimeException e) { HookEntry.log("replace old window",e); }
+                    });
+                }
+                return true;
+            }
+        });
+        try { wm.addView(box,fresh); window=box; windowKey=key; if (previous!=null) retiredWindows.add(previous); }
+        catch (RuntimeException e) {
+            params=previousParams; window=previous;
+            if (previous!=null) { previous.setTranslationX(0); previous.setAlpha(1); previous.setEnabled(true); }
+            HookEntry.log("native stash window",e);
         }
-        catch (RuntimeException e) { HookEntry.log("native stash window", e); }
+    }
+
+    private boolean expandedPanel(View box) { return window==box && panel && !docked; }
+    private void reportVisual(String key,String status) {
+        try {
+            Bundle report=new Bundle(); report.putString("key",key); report.putString("status",status);
+            context.getContentResolver().call(Config.URI,"visualStatus",null,report);
+        } catch (Throwable e) { HookEntry.log("visual status",e); }
+    }
+    private void persistPosition() {
+        prefs.edit().putInt("x",x).putInt("y",y).putBoolean("docked",docked).putBoolean("dockLeft",dockLeft).apply();
+    }
+    private void restoreDock() {
+        docked=false;
+        int screen=windowContext.getResources().getDisplayMetrics().widthPixels;
+        x=dockLeft ? dp(8) : Math.max(0,screen-dp(310)-dp(8));
+        persistPosition(); show(true);
+    }
+    private void hideToEdge() {
+        if (window==null || dragging) return;
+        int screen=windowContext.getResources().getDisplayMetrics().widthPixels;
+        dockLeft=WindowGeometry.left(params.x,params.width,screen);
+        final View outgoing=window;
+        movingWindow=false;
+        Runnable finish=() -> {
+            if (window!=outgoing || stopped || locked()) return;
+            y=params.y; docked=true; persistPosition(); show(false);
+        };
+        Motion.exit(outgoing,config.animations,dockLeft,finish);
+    }
+    private void bindWindowDrag(View handle,View root,boolean peek) {
+        handle.setOnTouchListener(new View.OnTouchListener() {
+            float downX,downY; int originX,originY; boolean moved;
+            @Override public boolean onTouch(View v,MotionEvent e) {
+                if (window!=root || dragging) return false;
+                switch(e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        if (windowAnimator!=null) { windowAnimator.cancel(); windowAnimator=null; }
+                        Motion.cancel(root); root.setTranslationX(0); root.setScaleX(1); root.setScaleY(1);
+                        downX=e.getRawX(); downY=e.getRawY(); originX=params.x; originY=params.y; moved=false;
+                        v.setPressed(false); return true;
+                    case MotionEvent.ACTION_MOVE:
+                        float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
+                        if (!moved && Math.hypot(dx,dy)>android.view.ViewConfiguration.get(windowContext).getScaledTouchSlop()) {
+                            moved=true; movingWindow=true; v.getParent().requestDisallowInterceptTouchEvent(true);
+                        }
+                        if (moved) {
+                            int sw=windowContext.getResources().getDisplayMetrics().widthPixels;
+                            int sh=windowContext.getResources().getDisplayMetrics().heightPixels;
+                            params.x=WindowGeometry.x(originX+Math.round(dx),sw,params.width);
+                            params.y=WindowGeometry.y(originY+Math.round(dy),sh,Math.max(dp(56),root.getHeight()),dp(32));
+                            try { wm.updateViewLayout(root,params); } catch (RuntimeException ex) { HookEntry.log("move stash",ex); }
+                        }
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        movingWindow=false;
+                        if (!moved) {
+                            if (e.getActionMasked()==MotionEvent.ACTION_UP) v.performClick();
+                            return true;
+                        }
+                        x=params.x; y=params.y;
+                        int sw=windowContext.getResources().getDisplayMetrics().widthPixels;
+                        if (peek) {
+                            boolean inward=dockLeft ? e.getRawX()-downX>dp(36) : e.getRawX()-downX < -dp(36);
+                            if (inward) { restoreDock(); return true; }
+                            params.x=dockLeft ? 0 : sw-params.width;
+                            try { wm.updateViewLayout(root,params); } catch(RuntimeException ignored) { }
+                        } else if (params.x<=dp(20) || params.x+params.width>=sw-dp(20)) {
+                            hideToEdge(); return true;
+                        }
+                        persistPosition(); return true;
+                    default: return true;
+                }
+            }
+        });
     }
 
     private TextView nativeAction(String label, Runnable action) {
@@ -356,11 +499,14 @@ final class StashController {
         text.setPadding(dp(9), dp(8), dp(9), dp(8)); text.setOnClickListener(v -> action.run()); return text;
     }
     private void openStored() {
+        docked=false;
+        suppressOffer=true;
         Object current = offerOwner.get();
         offerOwner.clear();
         if (current != null) try { XposedHelpers.callMethod(XposedHelpers.getObjectField(current, "mService"), "cancelTask"); }
         catch (Throwable e) { HookEntry.log("close recognition", e); }
         transition(true);
+        main.postDelayed(() -> suppressOffer=false,500L);
     }
     private void loadThumbnail(ImageView image, Uri uri) {
         if (io.isShutdown()) return;
@@ -488,7 +634,7 @@ final class StashController {
             if (splashOffer && entryOwner.get() == owner && entry != null && entry.isAttachedToWindow()) {
                 NativePortalUi.update(entry, "暂存栏", "icon_recognition_image_save");
                 entry.setOnClickListener(v -> openStored());
-                Motion.pulse(entry,config.animations);
+                // Do not compete with the host card's own Folme press-release animator.
                 toast("已暂存，点击暂存栏查看");
                 return;
             }
@@ -512,6 +658,7 @@ final class StashController {
             // Keep this window attached to receive DRAG_ENDED, but only leave a tiny edge
             // target so it cannot intercept the destination application's drop area.
             if (window != null) {
+                Motion.cancelTree(window); windowKey=null;
                 window.setAlpha(0.15f);
                 params.width = dp(40); params.height = dp(40);
                 wm.updateViewLayout(window, params);

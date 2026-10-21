@@ -88,6 +88,12 @@ public final class InfoActivity extends Activity {
                         .setMessage("仅分析过指定原始 APK，尚未实机验证。可能改变控制中心、音量等组件的材质。\n\n需在框架额外勾选系统界面与系统界面组件，首次由你手动重启加载。不会强制设备支持，也不会自动结束系统进程。\n\n与 HyperLight 等材质模块同时启用可能冲突。设置回跟随系统后，在面板重新创建时恢复。")
                         .setNegativeButton("取消",null).setPositiveButton("确认",(d,w)->{ cfg.pluginGlassMode=i; changed(); }).show();
                 }));
+        section("材质诊断"); LinearLayout diagnostics=group();
+        android.content.SharedPreferences visual=getSharedPreferences("diagnostics",0);
+        row(diagnostics,"暂存栏玻璃",visualRecord(visual,"stashGlass","未收到调用记录；打开玻璃开关并展开暂存栏后再查看"),"刷新",() -> render());
+        row(diagnostics,"系统组件 Hook",visualRecord(visual,"pluginGlass","未收到系统进程记录；检查额外作用域与重新加载"),"刷新",() -> render());
+        TextView warning=ui.text("诊断是带时间的历史调用记录，不代表当前进程在线，也不能证明画面已经显示玻璃。\n拖动暂存栏标题移动整栏；靠边松手或点收起，只留下半个图标。",12,ui.secondary);
+        warning.setPadding(ui.dp(20),ui.dp(8),ui.dp(20),ui.dp(12)); diagnostics.addView(warning);
         section("作用域管理"); LinearLayout manage = group();
         String version = "未检测到";
         try { version = getPackageManager().getPackageInfo(StashProvider.HOST, 0).versionName; } catch (Exception ignored) { }
@@ -105,11 +111,15 @@ public final class InfoActivity extends Activity {
                 }).show());
         section("关于"); LinearLayout about = group();
         row(about, "使用说明与兼容性", "仅操作用户主动识别的文字和图片", "", () -> about(false));
-        row(about, "界面与版本", "Miuix 风格 · 原生 Views 轻量实现", "0.4.0", () -> about(true));
+        row(about, "界面与版本", "Miuix 风格 · 原生 Views 轻量实现", "0.4.2", () -> about(true));
         TextView footer = ui.text("本地暂存 · 不联网 · 不自动发送\n设置保存后通知传送门，无需为设置变化重启手机", 12, ui.secondary);
         footer.setGravity(Gravity.CENTER); footer.setLineSpacing(ui.dp(5), 1); footer.setPadding(0, ui.dp(22), 0, ui.dp(10)); body.addView(footer);
         scroll.addView(body); setContentView(scroll); body.requestApplyInsets();
         scroll.post(() -> scroll.scrollTo(0, scrollY));
+    }
+    private String visualRecord(android.content.SharedPreferences p,String key,String empty) {
+        long time=p.getLong(key+"Time",0);
+        return time==0 ? empty : android.text.format.DateFormat.format("MM-dd HH:mm:ss",time)+"："+p.getString(key,empty);
     }
     private void toggle(LinearLayout group, String title, String detail, boolean value, java.util.function.Consumer<Boolean> change) {
         LinearLayout line=row(group,title,detail,null,null);
@@ -164,7 +174,7 @@ public final class InfoActivity extends Activity {
     }
     private void about(boolean style) {
         new AlertDialog.Builder(this).setTitle(style ? "界面与版本" : "使用说明")
-                .setMessage(style ? "0.4.1 澎湃 4 版\n\n新增三层独立圆角、与传送门一致的边缘平移动效、可选暂存栏原生玻璃，以及限定系统界面组件 18.3.2.22.0 的材质选择 Hook。两项玻璃功能默认关闭／跟随系统。系统组件重新创建后应用材质，不修改系统设置、不改桌面。\n\n长按入口复用原应用的 TaplusRecognitionShrinkCard、背景、字体和保存图标；原识别功能不被替换。暂存内容横向排列，长按拖出，上滑移除。模块设置页仍为原生 Views，并未集成 Compose Miuix 组件库。\n\n已构建不等于已完成实机验证。" :
+                .setMessage(style ? "0.4.2 澎湃 4 版\n\n本版修正首帧与重复窗口重建，移除额外保存缩放动画。可拖动标题移动整栏；靠边或点收起只露半个图标，点击或向内拖动展开。新增材质调用诊断，不把接口调用成功等同于玻璃画面生效。\n\n新增三层独立圆角、与传送门一致的边缘平移动效、可选暂存栏原生玻璃，以及限定系统界面组件 18.3.2.22.0 的材质选择 Hook。两项玻璃功能默认关闭／跟随系统。系统组件重新创建后应用材质，不修改系统设置、不改桌面。\n\n长按入口复用原应用的 TaplusRecognitionShrinkCard、背景、字体和保存图标；原识别功能不被替换。暂存内容横向排列，长按拖出，上滑移除。模块设置页仍为原生 Views，并未集成 Compose Miuix 组件库。\n\n已构建不等于已完成实机验证。" :
                 "1. 普通暂存仅勾选传送门。系统组件材质功能才额外勾选系统界面与系统界面组件。\n2. 首次注入需要传送门进程重新载入模块。\n3. 双指按压展开传送门，点侧边暂存入口。\n4. 展开暂存列表，长按内容拖出，或使用系统分享。\n\n跨应用拖放取决于目标应用支持；不读取通知、短信或聊天数据库，不自动发送。图片须先经传送门识别。\n\n锁屏时隐藏。过期清理在进程运行或再次启动时执行，不保证后台精确擦除。")
                 .setPositiveButton("知道了", null).show();
     }

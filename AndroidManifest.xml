@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="io.github.portalstash" android:versionCode="5" android:versionName="0.4.1">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="io.github.portalstash" android:versionCode="6" android:versionName="0.4.2">
     <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35" />
     <queries><package android:name="com.miui.contentextension" /><package android:name="miui.systemui.plugin" /><package android:name="com.android.systemui" /></queries>
     <application android:label="传送门暂存 · LSP" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:icon="@drawable/ic_stash">

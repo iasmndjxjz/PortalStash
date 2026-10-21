@@ -74,6 +74,20 @@ public final class StashProvider extends ContentProvider {
     }
 
     @Override public Bundle call(String method, String arg, Bundle extras) {
+        if ("visualStatus".equals(method)) {
+            String key=extras==null ? "" : extras.getString("key","");
+            boolean allowed=false;
+            String[] names=getContext().getPackageManager().getPackagesForUid(Binder.getCallingUid());
+            if(names!=null) for(String name:names) {
+                if ("stashGlass".equals(key) && HOST.equals(name)) allowed=true;
+                if ("pluginGlass".equals(key) && (SystemPluginHook.SYSTEMUI.equals(name) || SystemPluginHook.PLUGIN.equals(name))) allowed=true;
+            }
+            if (!allowed) throw new SecurityException("Visual status caller not allowed");
+            String status=extras.getString("status","unknown");
+            if(status.length()>240) status=status.substring(0,240);
+            getContext().getSharedPreferences("diagnostics",0).edit().putString(key,status).putLong(key+"Time",System.currentTimeMillis()).apply();
+            return new Bundle();
+        }
         if ("visualSettings".equals(method)) {
             int uid=Binder.getCallingUid();
             boolean allowed=uid==android.os.Process.myUid();

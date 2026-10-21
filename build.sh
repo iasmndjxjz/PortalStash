@@ -2,6 +2,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 TOOLS="$ROOT/tools"
+# Avoid packaging obsolete nested classes left behind by earlier source revisions.
+rm -rf "$ROOT/build/classes" "$ROOT/build/dex"
 mkdir -p "$ROOT/build/classes" "$ROOT/build/dex" "$ROOT/dist"
 # Dependencies are compile-only. Never package the Xposed API classes.
 javac -encoding UTF-8 --release 8 -cp "$TOOLS/android-35.jar:$TOOLS/xposed-api-82.jar" \
@@ -21,7 +23,7 @@ if [[ ! -f "$TOOLS/experimental.keystore" ]]; then
 fi
 apksigner sign --ks "$TOOLS/experimental.keystore" --ks-pass pass:portalstash-local \
   --key-pass pass:portalstash-local --ks-key-alias portalstash \
-  --out "$ROOT/dist/PortalStash-LSP-0.4.1.apk" "$ROOT/build/aligned.apk"
-apksigner verify --verbose "$ROOT/dist/PortalStash-LSP-0.4.1.apk"
-aapt dump badging "$ROOT/dist/PortalStash-LSP-0.4.1.apk"
-sha256sum "$ROOT/dist/PortalStash-LSP-0.4.1.apk"
+  --out "$ROOT/dist/PortalStash-LSP-0.4.2.apk" "$ROOT/build/aligned.apk"
+apksigner verify --verbose "$ROOT/dist/PortalStash-LSP-0.4.2.apk"
+aapt dump badging "$ROOT/dist/PortalStash-LSP-0.4.2.apk"
+sha256sum "$ROOT/dist/PortalStash-LSP-0.4.2.apk"

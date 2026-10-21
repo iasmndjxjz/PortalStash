@@ -20,7 +20,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
 
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam p) {
         if (SystemPluginHook.SYSTEMUI.equals(p.packageName) || SystemPluginHook.PLUGIN.equals(p.packageName)) {
-            new SystemPluginHook().start(p); return;
+            SystemPluginHook.start(p); return;
         }
         if (!HOST.equals(p.packageName) || !HOST.equals(p.processName)) return;
         XposedHelpers.findAndHookMethod(HOST + ".App", p.classLoader, "onCreate", new XC_MethodHook() {
